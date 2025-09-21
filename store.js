@@ -7,30 +7,46 @@ export function loadAccounts() {
   try {
     const raw = fs.readFileSync(FILE, "utf8");
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
+    if (Array.isArray(arr)) return arr;
+    return [];
   } catch {
     return [];
   }
 }
 
-export function saveAccounts(accounts) {
-  fs.writeFileSync(FILE, JSON.stringify(accounts, null, 2), "utf8");
+function saveAccounts(arr) {
+  fs.writeFileSync(FILE, JSON.stringify(arr, null, 2), "utf8");
 }
 
 export function addAccount({ label, token, mode }) {
-  const accounts = loadAccounts();
-  if (accounts.some(a => a.label === label)) {
-    throw new Error("同じ label が既に存在します");
+  if (!label || !token || !mode) throw new Error("label, token, mode は必須です");
+  const arr = loadAccounts();
+
+  // 同じ label があれば上書き（重複回避）
+  const idx = arr.findIndex((a) => a.label === label);
+  if (idx >= 0) {
+    arr[idx] = { ...arr[idx], token, mode };
+  } else {
+    arr.push({ label, token, mode });
   }
-  accounts.push({ label, token, mode });
-  saveAccounts(accounts);
-  return accounts;
+  saveAccounts(arr);
+  return true;
 }
 
 export function removeAccount(label) {
-  const accounts = loadAccounts();
-  const next = accounts.filter(a => a.label !== label);
-  if (next.length === accounts.length) throw new Error("指定の label は見つかりません");
+  const arr = loadAccounts();
+  const next = arr.filter((a) => a.label !== label);
+  if (next.length === arr.length) throw new Error("見つかりませんでした");
   saveAccounts(next);
-  return next;
+  return true;
+}
+
+/** ラベルを指定して token を更新（mode は既存のまま） */
+export function updateTokenByLabel(label, token) {
+  const arr = loadAccounts();
+  const idx = arr.findIndex((a) => a.label === label);
+  if (idx === -1) throw new Error("指定ラベルのアカウントがありません");
+  arr[idx].token = token;
+  saveAccounts(arr);
+  return arr[idx];
 }
